@@ -16,7 +16,7 @@ const Home = () => {
       <div className=" absolute text-white flex justify-center items-end z-10  h-full w-full">
         <div className="flex flex-col justify-center items-center py-12">
           <h1 className="text-4xl tracking-widest mb-4">Elevate your coding skills!</h1>
-          <button class="text-3xl bg-gradient-to-r  from-black/60 to-white/5   backdrop-blur-lg text-white  p-2 px-8 cursor-pointer hover:bg-white/10  rounded-full border-2 border-l-0 border-b-1 border-white/30 filter ">
+          <button className="text-3xl bg-gradient-to-r  from-black/60 to-white/5   backdrop-blur-lg text-white  p-2 px-8 cursor-pointer hover:bg-white/10  rounded-full border-2 border-l-0 border-b-1 border-white/30 filter ">
             &lt; Play &gt;
           </button>
         </div>
