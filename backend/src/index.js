@@ -6,12 +6,15 @@ import authRoutes from "./routes/auth.js";
 import matchRoutes from "./routes/match.js";
 import submitRoutes from "./routes/submit.js";
 import { initSocket } from "./socket.js";
+import connectDB from "./db/connectDB.js";
 
 dotenv.config();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+await connectDB();
 
 // API routes
 app.use("/auth", authRoutes);
