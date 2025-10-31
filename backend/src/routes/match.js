@@ -1,20 +1,18 @@
 import express from "express";
+import Problem from "../db/models/Problems.js";
 const router = express.Router();
 
-const sampleProblem = {
-  id: "sum-two",
-  title: "Sum of Two Integers",
-  description: "Read two integers from stdin and print their sum.",
-  input: "2 3",
-  output: "5",
-  template: {
-    javascript: `// read two ints from stdin and print their sum\nprocess.stdin.on('data', data => {\n  const [a, b] = data.toString().trim().split(/\\s+/).map(Number);\n  console.log(a + b);\n});`,
-    python: `# read two ints from stdin and print their sum\nprint(sum(map(int, input().split())))`,
-  },
-};
-
-router.get("/", (req, res) => {
-  res.json(sampleProblem);
+// GET /match - fetch a problem from the DB
+router.get("/", async (req, res) => {
+  try {
+    const problem = await Problem.findOne();
+    console.log("Problem fetched from DB:", problem);
+    if (!problem) return res.status(404).json({ error: "No problem found" });
+    res.json(problem);
+    console.log("Fetched problem:", problem);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch problem", details: err.message });
+  }
 });
 
 export default router;

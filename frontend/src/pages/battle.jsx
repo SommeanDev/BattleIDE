@@ -1,108 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import Editor from "@monaco-editor/react";
 import { submitCode } from "../services/judge0";
-
-
-// Store sample code for each language in an object
-const SAMPLE_CODE_MAP = {
-    java: `class Solution {
-    public List<Integer> spiralOrder(int[][] matrix) {
-        List<Integer> ans = new ArrayList<>();
-        if (matrix == null || matrix.length == 0) return ans;
-        int top = 0, left = 0;
-        int bottom = matrix.length - 1, right = matrix[0].length - 1;
-        while (top <= bottom && left <= right) {
-            for (int j = left; j <= right; j++) ans.add(matrix[top][j]);
-            top++;
-            for (int i = top; i <= bottom; i++) ans.add(matrix[i][right]);
-            right--;
-            if (top <= bottom) {
-                for (int j = right; j >= left; j--) ans.add(matrix[bottom][j]);
-                bottom--;
-            }
-            if (left <= right) {
-                for (int i = bottom; i >= top; i--) ans.add(matrix[i][left]);
-                left++;
-            }
-        }
-        return ans;
-    }
-}`,
-    python: `class Solution:
-    def spiralOrder(self, matrix: list[list[int]]) -> list[int]:
-        if not matrix:
-            return []
-        
-        rows, cols = len(matrix), len(matrix[0])
-        top, bottom, left, right = 0, rows - 1, 0, cols - 1
-        ans = []
-        
-        while top <= bottom and left <= right:
-            for j in range(left, right + 1):
-                ans.append(matrix[top][j])
-            top += 1
-            
-            for i in range(top, bottom + 1):
-                ans.append(matrix[i][right])
-            right -= 1
-            
-            if top <= bottom:
-                for j in range(right, left - 1, -1):
-                    ans.append(matrix[bottom][j])
-                bottom -= 1
-            
-            if left <= right:
-                for i in range(bottom, top - 1, -1):
-                    ans.append(matrix[i][left])
-                left += 1
-                
-        return ans
-`,
-    javascript: `/**
- * @param {number[][]} matrix
- * @return {number[]}
- */
-var spiralOrder = function(matrix) {
-    if (!matrix || matrix.length === 0) {
-        return [];
-    }
-    
-    const ans = [];
-    let top = 0;
-    let bottom = matrix.length - 1;
-    let left = 0;
-    let right = matrix[0].length - 1;
-    
-    while (top <= bottom && left <= right) {
-        for (let j = left; j <= right; j++) {
-            ans.push(matrix[top][j]);
-        }
-        top++;
-        
-        for (let i = top; i <= bottom; i++) {
-            ans.push(matrix[i][right]);
-        }
-        right--;
-        
-        if (top <= bottom) {
-            for (let j = right; j >= left; j--) {
-                ans.push(matrix[bottom][j]);
-            }
-            bottom--;
-        }
-        
-        if (left <= right) {
-            for (let i = bottom; i >= top; i--) {
-                ans.push(matrix[i][left]);
-            }
-            left++;
-        }
-    }
-    
-    return ans;
-};`,
-};
-
+import SAMPLE_CODE_MAP from "../constants/sampleCodeMap";
 // Define language options for the dropdown
 const LANGUAGE_OPTIONS = [
     { value: "java", label: "Java" },
@@ -110,7 +9,7 @@ const LANGUAGE_OPTIONS = [
     { value: "javascript", label: "JavaScript" },
 ];
 
-
+import { fetchMatchProblem } from "../services/match";
 
 export default function Battle() {
     const [loading, setLoading] = useState(true);
@@ -119,23 +18,9 @@ export default function Battle() {
     const [code, setCode] = useState(SAMPLE_CODE_MAP["java"]);
     const [submitting, setSubmitting] = useState(false);
     const [testResults, setTestResults] = useState([]);
+    const [problem, setProblem] = useState(null);
     const timerRef = useRef(null);
 
-    // Hardcoded test cases for Spiral Matrix
-    const TEST_CASES = [
-        {
-            input: "[[1,2,3],[4,5,6],[7,8,9]]",
-            expected: "[1,2,3,6,9,8,7,4,5]"
-        },
-        {
-            input: "[[1,2],[3,4]]",
-            expected: "[1,2,4,3]"
-        },
-        {
-            input: "[[7]]",
-            expected: "[7]"
-        }
-    ];
 
     // Map language to Judge0 language_id
     const LANGUAGE_ID_MAP = {
@@ -145,14 +30,19 @@ export default function Battle() {
     };
 
     useEffect(() => {
-        const timeout = setTimeout(() => {
-            setLoading(false);
-            timerRef.current = setInterval(() => {
-                setSecondsElapsed((s) => s + 1);
-            }, 1000);
-        }, 5000);
+        // Fetch problem from backend using service
+        fetchMatchProblem()
+            .then(data => {
+                setProblem(data);
+                setLoading(false);
+                timerRef.current = setInterval(() => {
+                    setSecondsElapsed((s) => s + 1);
+                }, 1000);
+            })
+            .catch(() => {
+                setLoading(false);
+            });
         return () => {
-            clearTimeout(timeout);
             if (timerRef.current) clearInterval(timerRef.current);
         };
     }, []);
@@ -169,40 +59,34 @@ export default function Battle() {
         return `${mm}:${ss}`;
     };
 
-    // Run code against all test cases
+    // Run code against all test cases from the fetched problem
     const handleSubmit = async () => {
+        if (!problem || !problem.examples || problem.examples.length === 0) return;
         setSubmitting(true);
         setTestResults([]);
         const results = [];
-        for (let i = 0; i < TEST_CASES.length; i++) {
-            const tc = TEST_CASES[i];
+        for (let i = 0; i < problem.examples.length; i++) {
+            const tc = problem.examples[i];
             let codeToRun = code;
-            // Append print statement for each language
-            if (language === "python") {
-                codeToRun += `\nprint(Solution().spiralOrder(${tc.input}))`;
-            } else if (language === "javascript") {
-                codeToRun += `\nconsole.log(spiralOrder(${tc.input}));`;
-            } else if (language === "java") {
-                // For Java, wrap with a main method that prints the result
-                codeToRun = `import java.util.*;\n${code}\nclass Main {\n    public static void main(String[] args) {\n        int[][] matrix = ${tc.input.replace(/\[\[/g, "{ { ").replace(/\],\[/g, " }, { ").replace(/\]\]/g, " } }")};\n        Solution sol = new Solution();\n        System.out.println(sol.spiralOrder(matrix));\n    }\n}`;
-            }
+            let stdin = tc.input || "";
+            // For most problems, user code should read from stdin
             try {
                 const res = await submitCode({
                     source_code: codeToRun,
                     language_id: LANGUAGE_ID_MAP[language],
-                    stdin: "", // No stdin needed now
+                    stdin,
                 });
                 // Compare output (stdout) to expected
                 let passed = false;
                 if (res.stdout) {
                     // Remove whitespace and newlines for comparison
                     const out = res.stdout.replace(/\s+/g, "").trim();
-                    const exp = tc.expected.replace(/\s+/g, "").trim();
+                    const exp = (tc.output || "").replace(/\s+/g, "").trim();
                     passed = out === exp;
                 }
                 results.push({
                     input: tc.input,
-                    expected: tc.expected,
+                    expected: tc.output,
                     output: res.stdout || "",
                     error: res.stderr || res.error || "",
                     passed,
@@ -211,7 +95,7 @@ export default function Battle() {
             } catch (err) {
                 results.push({
                     input: tc.input,
-                    expected: tc.expected,
+                    expected: tc.output,
                     output: "",
                     error: err.message,
                     passed: false,
@@ -241,39 +125,41 @@ export default function Battle() {
             <div className="flex flex-col lg:flex-row gap-6 px-6 pb-24">
                 {/* LEFT PANEL */}
                 <div className="flex-1 bg-transparent rounded-2xl p-6">
-                    <h1 className="text-3xl font-mono text-cyan-100 mb-3">
-                        Spiral Matrix
-                    </h1>
-                    <p className="text-slate-300 max-w-xl">
-                        Given an m × n integer matrix, return all elements of the matrix in
-                        spiral order.
-                    </p>
-
-                    {/* Example */}
-                    <div className="mt-6 bg-cyan-950 rounded-xl p-4 shadow-inner">
-                        <h2 className="text-cyan-300 font-semibold mb-2">Example 1:</h2>
-                        <pre className="bg-[#021518]/60 rounded-lg p-3 text-sm text-cyan-100">
-                            {`matrix = [
-  [1,2,3],
-  [4,5,6],
-  [7,8,9]
-]`}
-                        </pre>
-                        <div className="mt-3 text-slate-200">
-                            Output: [1,2,3,6,9,8,7,4,5]
-                        </div>
-                    </div>
-
-                    {/* Constraints */}
-                    <div className="mt-6 bg-cyan-950 rounded-lg p-4">
-                        <strong className="text-cyan-200">Constraints:</strong>
-                        <ul className="list-disc list-inside text-slate-300 text-sm mt-2">
-                            <li>m == matrix.length</li>
-                            <li>n == matrix[i].length</li>
-                            <li>1 &lt;= m, n &lt;= 10</li>
-                            <li>-100 &lt;= matrix[i][j] &lt;= 100</li>
-                        </ul>
-                    </div>
+                    {problem ? (
+                        <>
+                            <h1 className="text-3xl font-mono text-cyan-100 mb-3">
+                                {problem.title}
+                            </h1>
+                            <p className="text-slate-300 max-w-xl">
+                                {problem.statement?.description}
+                            </p>
+                            {/* Input/Output Format */}
+                            <div className="mt-6 bg-cyan-950 rounded-xl p-4 shadow-inner">
+                                <h2 className="text-cyan-300 font-semibold mb-2">Input Format:</h2>
+                                <pre className="bg-[#021518]/60 rounded-lg p-3 text-sm text-cyan-100">
+                                    {problem.statement?.input_format}
+                                </pre>
+                                <h2 className="text-cyan-300 font-semibold mt-4 mb-2">Output Format:</h2>
+                                <pre className="bg-[#021518]/60 rounded-lg p-3 text-sm text-cyan-100">
+                                    {problem.statement?.output_format}
+                                </pre>
+                            </div>
+                            {/* Examples */}
+                            <div className="mt-6 bg-cyan-950 rounded-lg p-4">
+                                <strong className="text-cyan-200">Examples:</strong>
+                                <ul className="list-disc list-inside text-slate-300 text-sm mt-2">
+                                    {problem.examples?.map((ex, idx) => (
+                                        <li key={idx} className="mb-2">
+                                            <div><span className="font-bold">Input:</span> {ex.input}</div>
+                                            <div><span className="font-bold">Output:</span> {ex.output}</div>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        </>
+                    ) : (
+                        <span className="text-slate-400">Loading problem…</span>
+                    )}
                 </div>
 
                 {/* RIGHT PANEL */}
