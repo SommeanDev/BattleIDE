@@ -10,7 +10,7 @@ const ProblemSchema = new mongoose.Schema({
     output_format: String
   },
   examples: []
-  // optional fields your saved documents have...
 }, { timestamps: true });
 
-export default mongoose.models.Problem || mongoose.model("Problem", ProblemSchema);
+// 👇 Force it to use the 'questions' collection
+export default mongoose.models.Problem || mongoose.model("Problem", ProblemSchema, "questions");
