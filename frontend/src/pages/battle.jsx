@@ -117,10 +117,25 @@ export default function Battle() {
     const [secondsElapsed, setSecondsElapsed] = useState(0);
     const [language, setLanguage] = useState("java");
     const [code, setCode] = useState(SAMPLE_CODE_MAP["java"]);
-    const [stdin, setStdin] = useState("");
-    const [result, setResult] = useState(null);
     const [submitting, setSubmitting] = useState(false);
+    const [testResults, setTestResults] = useState([]);
     const timerRef = useRef(null);
+
+    // Hardcoded test cases for Spiral Matrix
+    const TEST_CASES = [
+        {
+            input: "[[1,2,3],[4,5,6],[7,8,9]]",
+            expected: "[1,2,3,6,9,8,7,4,5]"
+        },
+        {
+            input: "[[1,2],[3,4]]",
+            expected: "[1,2,4,3]"
+        },
+        {
+            input: "[[7]]",
+            expected: "[7]"
+        }
+    ];
 
     // Map language to Judge0 language_id
     const LANGUAGE_ID_MAP = {
@@ -154,21 +169,58 @@ export default function Battle() {
         return `${mm}:${ss}`;
     };
 
+    // Run code against all test cases
     const handleSubmit = async () => {
         setSubmitting(true);
-        setResult(null);
-        try {
-            const res = await submitCode({
-                source_code: code,
-                language_id: LANGUAGE_ID_MAP[language],
-                stdin,
-            });
-            setResult(res);
-        } catch (err) {
-            setResult({ error: "Submission failed", details: err.message });
-        } finally {
-            setSubmitting(false);
+        setTestResults([]);
+        const results = [];
+        for (let i = 0; i < TEST_CASES.length; i++) {
+            const tc = TEST_CASES[i];
+            let codeToRun = code;
+            // Append print statement for each language
+            if (language === "python") {
+                codeToRun += `\nprint(Solution().spiralOrder(${tc.input}))`;
+            } else if (language === "javascript") {
+                codeToRun += `\nconsole.log(spiralOrder(${tc.input}));`;
+            } else if (language === "java") {
+                // For Java, wrap with a main method that prints the result
+                codeToRun = `import java.util.*;\n${code}\nclass Main {\n    public static void main(String[] args) {\n        int[][] matrix = ${tc.input.replace(/\[\[/g, "{ { ").replace(/\],\[/g, " }, { ").replace(/\]\]/g, " } }")};\n        Solution sol = new Solution();\n        System.out.println(sol.spiralOrder(matrix));\n    }\n}`;
+            }
+            try {
+                const res = await submitCode({
+                    source_code: codeToRun,
+                    language_id: LANGUAGE_ID_MAP[language],
+                    stdin: "", // No stdin needed now
+                });
+                // Compare output (stdout) to expected
+                let passed = false;
+                if (res.stdout) {
+                    // Remove whitespace and newlines for comparison
+                    const out = res.stdout.replace(/\s+/g, "").trim();
+                    const exp = tc.expected.replace(/\s+/g, "").trim();
+                    passed = out === exp;
+                }
+                results.push({
+                    input: tc.input,
+                    expected: tc.expected,
+                    output: res.stdout || "",
+                    error: res.stderr || res.error || "",
+                    passed,
+                    status: res.status?.description || ""
+                });
+            } catch (err) {
+                results.push({
+                    input: tc.input,
+                    expected: tc.expected,
+                    output: "",
+                    error: err.message,
+                    passed: false,
+                    status: "Error"
+                });
+            }
         }
+        setTestResults(results);
+        setSubmitting(false);
     };
 
     return (
@@ -258,34 +310,25 @@ export default function Battle() {
                         />
                     </div>
 
-                    {/* STDIN input */}
-                    <div className="mb-2">
-                        <label className="text-cyan-400 font-semibold block mb-1">Custom Input (stdin):</label>
-                        <textarea
-                            value={stdin}
-                            onChange={e => setStdin(e.target.value)}
-                            className="w-full bg-[#021518]/60 rounded-lg p-2 text-cyan-100 text-sm focus:outline-none"
-                            rows={3}
-                            placeholder="Enter custom input for your code (optional)"
-                        />
-                    </div>
+                    {/* ...removed custom input field... */}
 
-                    {/* Test Result */}
-                    <div className="h-40 bg-[#021518]/60 rounded-xl p-4 flex flex-col overflow-auto">
-                        <span className="text-cyan-400 font-semibold">Result</span>
+                    {/* Test Results for all test cases */}
+                    <div className="h-56 bg-[#021518]/60 rounded-xl p-4 flex flex-col overflow-auto">
+                        <span className="text-cyan-400 font-semibold">Test Cases</span>
                         {submitting ? (
                             <span className="text-slate-400 text-sm mt-3 opacity-70">Running code…</span>
-                        ) : result ? (
+                        ) : testResults.length > 0 ? (
                             <div className="mt-2 text-sm">
-                                {result.error ? (
-                                    <div className="text-red-400 font-bold">Error: {result.error}<br/>{result.details && <span className="text-xs">{result.details}</span>}</div>
-                                ) : (
-                                    <>
-                                        {result.stdout && <div><span className="text-cyan-300">Output:</span> <pre className="bg-[#061e22] rounded p-2 text-cyan-100 whitespace-pre-wrap">{result.stdout}</pre></div>}
-                                        {result.stderr && <div><span className="text-yellow-300">Error:</span> <pre className="bg-[#061e22] rounded p-2 text-yellow-100 whitespace-pre-wrap">{result.stderr}</pre></div>}
-                                        {result.status && <div className="text-slate-400">Status: {result.status.description}</div>}
-                                    </>
-                                )}
+                                {testResults.map((tr, idx) => (
+                                    <div key={idx} className={`mb-3 p-2 rounded-lg ${tr.passed ? "bg-green-900/40" : "bg-red-900/30"}`}>
+                                        <div className="font-mono text-xs text-cyan-300">Input: {tr.input}</div>
+                                        <div className="font-mono text-xs text-cyan-200">Expected: {tr.expected}</div>
+                                        <div className="font-mono text-xs text-cyan-100">Output: {tr.output}</div>
+                                        {tr.error && <div className="text-yellow-300">Error: <span className="text-yellow-100">{tr.error}</span></div>}
+                                        <div className="text-xs text-slate-400">Status: {tr.status}</div>
+                                        <div className={`font-bold mt-1 ${tr.passed ? "text-green-400" : "text-red-400"}`}>{tr.passed ? "Passed" : "Failed"}</div>
+                                    </div>
+                                ))}
                             </div>
                         ) : (
                             <span className="text-slate-400 text-sm mt-3 opacity-70">You must run your code first</span>
