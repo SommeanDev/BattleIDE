@@ -12,7 +12,7 @@ dotenv.config();
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json()); // This line is required!
 
 await connectDB();
 
