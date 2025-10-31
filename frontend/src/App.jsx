@@ -1,18 +1,14 @@
-import React from "react";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import Navbar from "./components/Navbar";
-import Home from "./pages/Home";
-import Battle from "./pages/battle";
+// src/App.jsx - CORRECTED
+import React from 'react';
+import Navbar from './components/Navbar';
+import { Outlet } from 'react-router-dom'; // 👈 1. Import Outlet
 
 const App = () => {
   return (
-    <Router>
+    <>
       <Navbar />
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/battle" element={<Battle />} />
-      </Routes>
-    </Router>
+      <Outlet />
+    </>
   );
 };
 
