@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Navbar from "./components/Navbar";
@@ -17,3 +18,19 @@ const App = () => {
 };
 
 export default App;
+=======
+import React from 'react'
+import Navbar from './components/Navbar'
+import Home from './components/Home'
+
+const App = () => {
+  return (
+    <>
+    <Navbar/>
+    <Home/>
+    </>
+  )
+}
+
+export default App
+>>>>>>> 63f1c46 (backend code old)
