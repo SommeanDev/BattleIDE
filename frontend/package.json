@@ -11,7 +11,9 @@
   },
   "dependencies": {
     "@clerk/clerk-react": "^5.46.1",
+    "@monaco-editor/react": "^4.7.0",
     "@tailwindcss/vite": "^4.1.12",
+    "clerk": "^0.8.3",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-router-dom": "^7.8.2",
