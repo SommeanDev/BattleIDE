@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import Editor from "@monaco-editor/react";
+import { submitCode } from "../services/judge0";
+
 
 // Store sample code for each language in an object
 const SAMPLE_CODE_MAP = {
@@ -109,11 +111,23 @@ const LANGUAGE_OPTIONS = [
 ];
 
 
+
 export default function Battle() {
     const [loading, setLoading] = useState(true);
     const [secondsElapsed, setSecondsElapsed] = useState(0);
-    const [language, setLanguage] = useState("java"); // State for language
+    const [language, setLanguage] = useState("java");
+    const [code, setCode] = useState(SAMPLE_CODE_MAP["java"]);
+    const [stdin, setStdin] = useState("");
+    const [result, setResult] = useState(null);
+    const [submitting, setSubmitting] = useState(false);
     const timerRef = useRef(null);
+
+    // Map language to Judge0 language_id
+    const LANGUAGE_ID_MAP = {
+        java: 62,
+        python: 71,
+        javascript: 63,
+    };
 
     useEffect(() => {
         const timeout = setTimeout(() => {
@@ -122,12 +136,15 @@ export default function Battle() {
                 setSecondsElapsed((s) => s + 1);
             }, 1000);
         }, 5000);
-
         return () => {
             clearTimeout(timeout);
             if (timerRef.current) clearInterval(timerRef.current);
         };
     }, []);
+
+    useEffect(() => {
+        setCode(SAMPLE_CODE_MAP[language]);
+    }, [language]);
 
     const formatTime = (secs) => {
         const mm = Math.floor(secs / 60)
@@ -135,6 +152,23 @@ export default function Battle() {
             .padStart(2, "0");
         const ss = (secs % 60).toString().padStart(2, "0");
         return `${mm}:${ss}`;
+    };
+
+    const handleSubmit = async () => {
+        setSubmitting(true);
+        setResult(null);
+        try {
+            const res = await submitCode({
+                source_code: code,
+                language_id: LANGUAGE_ID_MAP[language],
+                stdin,
+            });
+            setResult(res);
+        } catch (err) {
+            setResult({ error: "Submission failed", details: err.message });
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     return (
@@ -209,10 +243,11 @@ export default function Battle() {
 
                     <div className="flex-1 min-h-[400px] rounded-xl overflow-hidden shadow-lg">
                         <Editor
-                            key={language} // Force re-mount on language change
+                            key={language}
                             height="100%"
                             language={language}
-                            defaultValue={SAMPLE_CODE_MAP[language]}
+                            value={code}
+                            onChange={setCode}
                             theme="vs-dark"
                             options={{
                                 minimap: { enabled: false },
@@ -223,20 +258,50 @@ export default function Battle() {
                         />
                     </div>
 
+                    {/* STDIN input */}
+                    <div className="mb-2">
+                        <label className="text-cyan-400 font-semibold block mb-1">Custom Input (stdin):</label>
+                        <textarea
+                            value={stdin}
+                            onChange={e => setStdin(e.target.value)}
+                            className="w-full bg-[#021518]/60 rounded-lg p-2 text-cyan-100 text-sm focus:outline-none"
+                            rows={3}
+                            placeholder="Enter custom input for your code (optional)"
+                        />
+                    </div>
+
                     {/* Test Result */}
-                    <div className="h-40 bg-[#021518]/60 rounded-xl p-4 flex flex-col">
-                        <span className="text-cyan-400 font-semibold">Testcase</span>
-                        <span className="text-slate-400 text-sm mt-3 opacity-70">
-                            You must run your code first
-                        </span>
+                    <div className="h-40 bg-[#021518]/60 rounded-xl p-4 flex flex-col overflow-auto">
+                        <span className="text-cyan-400 font-semibold">Result</span>
+                        {submitting ? (
+                            <span className="text-slate-400 text-sm mt-3 opacity-70">Running code…</span>
+                        ) : result ? (
+                            <div className="mt-2 text-sm">
+                                {result.error ? (
+                                    <div className="text-red-400 font-bold">Error: {result.error}<br/>{result.details && <span className="text-xs">{result.details}</span>}</div>
+                                ) : (
+                                    <>
+                                        {result.stdout && <div><span className="text-cyan-300">Output:</span> <pre className="bg-[#061e22] rounded p-2 text-cyan-100 whitespace-pre-wrap">{result.stdout}</pre></div>}
+                                        {result.stderr && <div><span className="text-yellow-300">Error:</span> <pre className="bg-[#061e22] rounded p-2 text-yellow-100 whitespace-pre-wrap">{result.stderr}</pre></div>}
+                                        {result.status && <div className="text-slate-400">Status: {result.status.description}</div>}
+                                    </>
+                                )}
+                            </div>
+                        ) : (
+                            <span className="text-slate-400 text-sm mt-3 opacity-70">You must run your code first</span>
+                        )}
                     </div>
                 </div>
             </div>
 
             {/* Submit Button */}
             <div className="fixed bottom-6 right-6">
-                <button className="bg-slate-100 text-[#071820] font-bold px-5 py-2.5 rounded-xl shadow-md hover:scale-105 active:scale-95 transition">
-                    Submit
+                <button
+                    className="bg-slate-100 text-[#071820] font-bold px-5 py-2.5 rounded-xl shadow-md hover:scale-105 active:scale-95 transition"
+                    onClick={handleSubmit}
+                    disabled={submitting}
+                >
+                    {submitting ? "Submitting…" : "Submit"}
                 </button>
             </div>
 
