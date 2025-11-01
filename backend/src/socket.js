@@ -1,62 +1,54 @@
 import { Server } from "socket.io";
+import Room from "./db/models/Room.js";
 
 let io;
-const queue = []; // simple FIFO queue of sockets waiting for match
+const userToSocketMap = new Map();
 
 export function initSocket(httpServer) {
   io = new Server(httpServer, { cors: { origin: "*" } });
 
   io.on("connection", (socket) => {
-    console.log("socket connected:", socket.id);
+    console.log("Socket connected:", socket.id);
 
-    socket.on("join-queue", ({ username, rank }) => {
-      console.log(`${username} joined queue`);
-      // if someone waiting, pair them
-      const waiting = queue.shift();
-      if (waiting && waiting.id !== socket.id) {
-        const roomId = `room-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-        socket.join(roomId);
-        waiting.join(roomId);
+    const userId = socket.handshake.query.userId;
+    if (userId) {
+      userToSocketMap.set(userId, socket);
+      console.log(`User ${userId} mapped to socket ${socket.id}`);
+    }
 
-        // send match-found to both
-        io.to(waiting.id).emit("match-found", {
-          roomId,
-          opponent: { username, rank: rank || "Bronze" },
-        });
-
-        io.to(socket.id).emit("match-found", {
-          roomId,
-          opponent: { username: waiting.data.username, rank: waiting.data.rank },
-        });
-
-        console.log("matched", waiting.data.username, "with", username);
-      } else {
-        // store socket and some metadata
-        queue.push({ id: socket.id, socket, data: { username, rank } });
-        // optional: ack back
-        socket.emit("queued");
-      }
-    });
-
-    socket.on("leave-queue", () => {
-      for (let i = 0; i < queue.length; i++) {
-        if (queue[i].id === socket.id) {
-          queue.splice(i, 1);
-          break;
-        }
-      }
-      socket.emit("left-queue");
+    socket.on("join_room", ({ roomId }) => {
+      console.log(`Socket ${socket.id} joining room ${roomId}`);
+      socket.join(roomId);
     });
 
     socket.on("disconnect", () => {
-      // remove from queue on disconnect
-      for (let i = 0; i < queue.length; i++) {
-        if (queue[i].id === socket.id) {
-          queue.splice(i, 1);
-          break;
+      console.log("Socket disconnected:", socket.id);
+      userToSocketMap.forEach((value, key) => {
+        if (value.id === socket.id) {
+          userToSocketMap.delete(key);
+          console.log(`Removed user ${key} from socket map`);
         }
-      }
-      console.log("socket disconnected:", socket.id);
+      });
     });
   });
 }
+
+export function getSocketFromUserId(userId) {
+  return userToSocketMap.get(userId);
+}
+
+export function emitMatchStart(roomId, roomData) {
+  console.log(`Emitting match_start to room ${roomId}`);
+  io.to(roomId).emit("match_start", { room: roomData });
+}
+
+export function emitMatchEnd(roomId, winnerId, roomData) {
+  console.log(`Emitting match_end to room ${roomId}`);
+  io.to(roomId).emit("match_end", { winnerId, room: roomData });
+}
+
+export function emitSubmissionLate(socketId, message) {
+  console.log(`Emitting submission_accepted_late to socket ${socketId}`);
+  io.to(socketId).emit("submission_accepted_late", { message });
+}
+
