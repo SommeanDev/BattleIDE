@@ -1,19 +1,18 @@
-// src/App.jsx - CORRECTED
 import React from 'react';
-import Navbar from './components/Navbar';
 import { Outlet } from 'react-router-dom';
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import Home from "./pages/Home";
-import Battle from "./pages/battle";
+import Navbar from './components/Navbar'; 
 
 const App = () => {
   return (
     <>
       <Navbar />
-      <Outlet />
+      <main>
+        <Outlet />
+      </main>
     </>
   );
 };
 
+// This line is what the error says is missing
 export default App;
 
