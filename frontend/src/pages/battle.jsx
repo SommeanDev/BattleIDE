@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from "@clerk/clerk-react";
 import { useSocket } from '../context/SocketContext';
 import { AiOutlineCheckCircle, AiOutlineCloseCircle, AiOutlineLoading3Quarters } from 'react-icons/ai';
-
+import axios from "axios"
 import { getRoom, submitFinalSolution } from "../services/api";
 import { runCodeOnJudge0 } from "../services/judge0";
 import SAMPLE_CODE_MAP from "../constants/sampleCodeMap";
@@ -43,10 +43,45 @@ export default function Battle() {
     const [matchStatus, setMatchStatus] = useState('Connecting...'); // 'Connecting...', 'waiting', 'in_progress', 'finished'
     const [winner, setWinner] = useState(null);
 
+    const [currentUser, setCurrentUser] = useState("");
+    const [winnerName, setWinnerName] = useState("User");
+
+    useEffect(()=>{
+    },[winnerName])
+
     useEffect(() => {
-        // Wait for Clerk to be loaded AND socket to be connected
+        const fetchUserId = async () => {
+            if (!isLoaded || !myUserId) return;
+            console.log();
+            try {
+                const res = await axios.get(`http://localhost:4000/auth/by-auth/${myUserId}`);
+                console.log(res);
+                setCurrentUser(res.data._id);
+                console.log("Fetched MongoDB user ID:", res.data._id);
+            } catch (error) {
+                console.error("Failed to fetch user ID:", error.response?.data || error.message);
+            }
+        };
+        fetchUserId();
+    }, [isLoaded, myUserId]);
+
+
+    const fetchWinnerData = async (winner_id) => {
+        if (!isLoaded || !myUserId) return;
+        console.log();
+        try {
+            const res = await axios.get(`http://localhost:4000/auth/winner/${winner_id}`);
+            console.log(res);
+            setWinnerName(res.data.name)
+
+            // console.log("Fetched MongoDB user ID:", res.data._id);
+        } catch (error) {
+            console.error("Failed to fetch user ID:", error.response?.data || error.message);
+        }
+    };
+
+    useEffect(() => {
         if (!socket || !roomId || !isLoaded) {
-            // Show connecting screen while Clerk loads
             setMatchStatus('Connecting...');
             return;
         }
@@ -54,32 +89,19 @@ export default function Battle() {
         const fetchRoomData = async () => {
             try {
                 const token = await getToken();
-                if (!token) {
-                    console.error("Clerk token is null! User may not be fully logged in.");
-                    setMatchStatus('Error');
-                    return;
-                }
-
                 const res = await getRoom(roomId, token);
                 const roomData = res.data.room;
-
                 setRoom(roomData);
                 setMatchStatus(roomData.status);
 
-                if (roomData.problemId) {
-                    setProblem(roomData.problemId);
-                } else {
-                    console.error("Room data is missing problem details");
-                    setMatchStatus('Error');
-                }
+                if (roomData.problemId) setProblem(roomData.problemId);
 
                 if (roomData.status === 'in_progress') {
                     const startTime = new Date(roomData.startedAt).getTime();
-                    const now = Date.now();
-                    const elapsed = Math.floor((now - startTime) / 1000);
-                    startTimer(elapsed);
+                    startTimer(Math.floor((Date.now() - startTime) / 1000));
                 } else if (roomData.status === 'finished') {
                     setWinner(roomData.winnerId);
+                    await fetchWinnerData(roomData.winnerId);
                     clearInterval(timerRef.current);
                 }
             } catch (err) {
@@ -91,41 +113,46 @@ export default function Battle() {
             }
         };
 
-        fetchRoomData();
-
-        socket.emit('join_room', { roomId });
-
-        socket.on('match_start', ({ room: roomData }) => {
+        // ✅ Attach socket listeners BEFORE join_room emit
+        const handleMatchStart = ({ room: roomData }) => {
             setRoom(roomData);
             setMatchStatus('in_progress');
-            if (roomData.problemId) {
-                setProblem(roomData.problemId);
-            }
+            if (roomData.problemId) setProblem(roomData.problemId);
             console.log('Match started!', roomData);
             startTimer(0);
-        });
+        };
 
-        socket.on('match_end', ({ winnerId, room: roomData }) => {
+        const handleMatchEnd = async({ winnerId, room: roomData }) => {
             setRoom(roomData);
             setWinner(winnerId);
+            await fetchWinnerData(winnerId);
             setMatchStatus('finished');
             clearInterval(timerRef.current);
             console.log('Match finished!', roomData);
-        });
+        };
 
-        socket.on('submission_accepted_late', ({ message }) => {
+        const handleLateSubmission = ({ message }) => {
             alert(message);
             setSubmittingMatch(false);
-        });
+        };
+
+        socket.on('match_start', handleMatchStart);
+        socket.on('match_end', handleMatchEnd);
+        socket.on('submission_accepted_late', handleLateSubmission);
+
+        // ✅ Now emit after listeners are ready
+        socket.emit('join_room', { roomId });
+
+        fetchRoomData();
 
         return () => {
-            socket.off('match_start');
-            socket.off('match_end');
-            socket.off('submission_accepted_late');
+            socket.off('match_start', handleMatchStart);
+            socket.off('match_end', handleMatchEnd);
+            socket.off('submission_accepted_late', handleLateSubmission);
             clearInterval(timerRef.current);
         };
-        // Add isLoaded to the dependency array
     }, [socket, roomId, getToken, navigate, isLoaded]);
+
 
     useEffect(() => {
         setCode(SAMPLE_CODE_MAP[language]);
@@ -205,7 +232,7 @@ export default function Battle() {
                 token,
             });
             console.log('Submission received by server:', res.data);
-           
+
 
         } catch (err) {
             console.error("Submission failed", err);
@@ -245,8 +272,13 @@ export default function Battle() {
 
     if (matchStatus === 'finished') {
         // Use the real user ID from Clerk
-        const isWinner = winner === myUserId;
-        const winnerUsername = room?.players.find(p => p.authId === winner)?.username || 'Opponent';
+        const isWinner = String(winner) === String(currentUser);
+        console.log("Winnnnerrr", winner);
+        console.log("currentUser", currentUser);
+        console.log("www", winnerName);
+
+
+
 
         return (
             <div className="fixed inset-0 bg-black/80 backdrop-blur-lg flex items-center justify-center z-50 text-center font-inter animate-fadeIn">
@@ -263,7 +295,7 @@ export default function Battle() {
                         {isWinner ? "You won the match!" : "Your opponent finished first."}
                     </p>
                     <p className="text-sm text-slate-400 mb-6">
-                        Winner: {winnerUsername}
+                        Winner: {winnerName}
                     </p>
                     <button
                         className="bg-slate-100 text-[#071820] font-bold px-5 py-2.5 rounded-xl shadow-md hover:scale-105 active:scale-95 transition"
