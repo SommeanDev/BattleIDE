@@ -3,7 +3,7 @@ import vid from "../assets/bg_vid.mp4";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@clerk/clerk-react";
 import { createRoom, joinRoomByCode } from "../services/api";
-
+import { toast } from "sonner";
 const Home = () => {
   const [joinCode, setJoinCode] = useState("");
   const [isCreating, setIsCreating] = useState(false);
@@ -18,7 +18,7 @@ const Home = () => {
     try {
       const token = await getToken();
       console.log(token);
-      
+
       const res = await createRoom(token);
       const roomId = res.data.roomId;
       navigate(`/battle/${roomId}`);
@@ -40,7 +40,8 @@ const Home = () => {
       navigate(`/battle/${roomId}`);
     } catch (err) {
       console.error("Failed to join room", err);
-      alert("Failed to join room. Please check the code and try again.");
+      // alert("Failed to join room. Please check the code and try again.");
+      toast.info("Invalid Room Code !");
       setIsJoining(false);
     }
   };
@@ -76,7 +77,7 @@ const Home = () => {
       }
 
       const data = await res.json();
-      return {data};
+      return { data };
     }
     catch (err) {
       throw err;
@@ -94,26 +95,35 @@ const Home = () => {
         <source src={vid} type="video/mp4" />
         Your browser does not support the video tag.
       </video>
-      <div className=" absolute text-white flex justify-center items-center z-10 h-full w-full">
+      <div className=" absolute text-white flex justify-center items-center bg-black/30 z-10 h-full w-full">
         <div className="flex flex-col justify-center items-center py-12">
-          <h1 className="text-5xl font-bold tracking-widest mb-6 text-shadow-lg">
+          <h1 className="text-6xl font-bold tracking-widest mb-6 text-shadow-lg">
             BATTLE IDE
           </h1>
-          <button
+
+
+          {/* <button
             onClick={handleCreateRoom}
             disabled={isCreating}
             className="text-3xl bg-gradient-to-r from-black/60 to-white/5 backdrop-blur-lg text-white p-2 px-8 cursor-pointer hover:bg-white/10 rounded-full border-2 border-l-0 border-b-1 border-white/30 filter disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isCreating ? "Creating..." : "< Create Room >"}
-          </button>
+          </button> */}
 
+          <button
+            onClick={handleFindRandomMatch}
+            disabled={isFinding}
+            className="text-3xl bg-gradient-to-r mt-6 from-black/60 to-white/5 backdrop-blur-lg text-white p-2 px-8 cursor-pointer hover:bg-white/10 rounded-full border-2 border-l-0 border-b-1 border-white/30 filter disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isFinding ? "Finding..." : "< Find a Match >"}
+          </button>
           <div className="text-xl my-4 text-slate-200 tracking-widest">
             — OR —
           </div>
 
           <form
             onSubmit={handleJoinRoom}
-            className="flex flex-col sm:flex-row items-center gap-3"
+            className="flex flex-col sm:flex-row items-center gap-3 my-3"
           >
             <input
               type="text"
@@ -131,13 +141,7 @@ const Home = () => {
             </button>
           </form>
 
-          <button
-            onClick={handleFindRandomMatch}
-            disabled={isFinding}
-            className="text-3xl bg-gradient-to-r from-black/60 to-white/5 backdrop-blur-lg text-white p-2 px-8 cursor-pointer hover:bg-white/10 rounded-full border-2 border-l-0 border-b-1 border-white/30 filter disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isFinding ? "Finding..." : "Find a Random Match"}
-          </button>
+
         </div>
       </div>
     </div>

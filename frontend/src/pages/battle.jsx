@@ -45,6 +45,8 @@ export default function Battle() {
     const [winner, setWinner] = useState(null);
 
     const [currentUser, setCurrentUser] = useState("");
+    const [opponentData, setOpponentData] = useState(null);
+    const [currentUserData, setCurrentUserData] = useState(null);
     const [winnerName, setWinnerName] = useState("User");
 
 
@@ -110,17 +112,30 @@ export default function Battle() {
     }, [socket, roomId, isLoaded, updateTrigger]); // <- added updateTrigger
 
 
+    const fetchOpponentData = async (userId) => {
+        if (!userId) return;
+        console.log();
+        try {
+            const res = await axios.get(`http://localhost:4000/auth/getuser/${userId}`);
+            console.log(res);
+            setOpponentData(res.data);
+            console.log("Fetched opponent:", res.data);
+        } catch (error) {
+            console.error("Failed to fetch user ID:", error.response?.data || error.message);
+        }
+    };
+
 
 
     useEffect(() => {
         const fetchUserId = async () => {
             if (!isLoaded || !myUserId) return;
-            console.log();
             try {
                 const res = await axios.get(`http://localhost:4000/auth/by-auth/${myUserId}`);
-                console.log(res);
-                setCurrentUser(res.data._id);
-                console.log("Fetched MongoDB user ID:", res.data._id);
+                const mongoUser = res.data;
+                setCurrentUser(mongoUser._id);
+                setCurrentUserData(mongoUser); // ✅ store user info like name, avatar, etc.
+                console.log("Fetched MongoDB user:", mongoUser);
             } catch (error) {
                 console.error("Failed to fetch user ID:", error.response?.data || error.message);
             }
@@ -143,24 +158,38 @@ export default function Battle() {
         }
     };
 
+
     useEffect(() => {
-        if (!socket || !roomId || !isLoaded) {
+        if (!socket || !roomId || !isLoaded || !currentUser) {
             setMatchStatus('Connecting...');
             return;
         }
 
         const fetchRoomData = async () => {
-
             try {
                 const token = await getToken();
                 const res = await getRoom(roomId, token);
                 const roomData = res.data.room;
+
                 setRoom(roomData);
                 setMatchStatus(roomData.status);
 
+                // ✅ FIND AND SET OPPONENT DATA
+                if (Array.isArray(roomData.players) && roomData.players.length > 1) {
+                    const opponentId = roomData.players.find(id => id !== String(currentUser));
+                    if (opponentId) {
+                        console.log("Opponent ID:", opponentId);
+                        await fetchOpponentData(opponentId);
+                    } else {
+                        console.warn("Opponent not found among players:", roomData.players);
+                    }
+                }
+
+                // ✅ Handle problem
                 if (roomData.problemId) setProblem(roomData.problemId);
 
-                if (roomData.status === 'in_progress') {
+                // ✅ Handle status
+                if (roomData.status === 'in_progress' && roomData.startedAt) {
                     const startTime = new Date(roomData.startedAt).getTime();
                     startTimer(Math.floor((Date.now() - startTime) / 1000));
                 } else if (roomData.status === 'finished') {
@@ -177,13 +206,17 @@ export default function Battle() {
             }
         };
 
-        // ✅ Attach socket listeners BEFORE join_room emit
-        const handleMatchStart = ({ room: roomData }) => {
+        // ✅ Socket listeners
+        const handleMatchStart = async ({ room: roomData }) => {
             setRoom(roomData);
             setMatchStatus('in_progress');
             if (roomData.problemId) setProblem(roomData.problemId);
             console.log('Match started!', roomData);
             startTimer(0);
+
+            // ✅ Refresh opponent info when a new match starts
+            const opponentId = roomData.players.find(id => id !== String(currentUser));
+            if (opponentId) await fetchOpponentData(opponentId);
         };
 
         const handleMatchEnd = async ({ winnerId, room: roomData }) => {
@@ -200,22 +233,25 @@ export default function Battle() {
             setSubmittingMatch(false);
         };
 
+        // ✅ Attach socket listeners before joining
         socket.on('match_start', handleMatchStart);
         socket.on('match_end', handleMatchEnd);
         socket.on('submission_accepted_late', handleLateSubmission);
 
-        // ✅ Now emit after listeners are ready
+        // ✅ Emit join_room after listeners are ready
         socket.emit('join_room', { roomId });
 
+        // ✅ Fetch initial data
         fetchRoomData();
 
+        // ✅ Cleanup on unmount
         return () => {
             socket.off('match_start', handleMatchStart);
             socket.off('match_end', handleMatchEnd);
             socket.off('submission_accepted_late', handleLateSubmission);
             clearInterval(timerRef.current);
         };
-    }, [socket, roomId, getToken, navigate, isLoaded]);
+    }, [socket, roomId, getToken, navigate, isLoaded, currentUser]);
 
 
     useEffect(() => {
@@ -298,7 +334,7 @@ export default function Battle() {
             console.log('Submission received by server:', res.data);
             if (res.data.status != "Accepted") {
                 setSubmittingMatch(false)
-                toast('Wrong Answer  ❌', {
+                toast.warning('Wrong Answer  ❌', {
                     style: {
                         background: 'red',
                         color: '#fff',
@@ -371,7 +407,7 @@ export default function Battle() {
                         <AiOutlineCloseCircle className="text-red-500 text-7xl mx-auto mb-4" />
                     )}
                     <div>
-                        <p className={`${isWinner?"text-green-300":"text-red-600"} text-2xl`}>{isWinner?"+ 100":"+ 0 "}</p>
+                        <p className={`${isWinner ? "text-green-300" : "text-red-600"} text-2xl`}>{isWinner ? "+ 100" : "+ 0 "}</p>
                     </div>
                     <p className="text-lg text-slate-200 mb-2">
                         {isWinner ? "You won the match!" : "Your opponent finished first."}
@@ -414,16 +450,62 @@ export default function Battle() {
 
     return (
         <div className="min-h-screen bg-[#071820] text-slate-200 font-inter relative overflow-hidden">
-            <div className="flex justify-center py-4">
-                <div className="bg-[#0d2229]/60 backdrop-blur-sm rounded-xl px-6 py-2 flex items-center gap-3 shadow-lg">
-                    <span className="text-xs tracking-widest text-slate-400 uppercase">
-                        Timer
-                    </span>
-                    <span className="font-mono text-lg font-bold text-cyan-100">
-                        {formatTime(secondsElapsed)}
-                    </span>
+            <div className="flex justify-around items-center py-3 mt-20 rounded-lg ">
+
+                {/* 🙋‍♂️ Current User */}
+                {currentUserData ? (
+                    <div className="flex flex-col items-center text-center">
+                        <img
+                            src={currentUserData.avatarUrl || "/default-avatar.png"}
+                            alt={currentUserData.name || "You"}
+                            className="w-8 h-8 rounded-full object-cover border-2 border-cyan-500 shadow-md"
+                        />
+                        <span className="text-sm font-semibold text-cyan-300 mt-2 tracking-wide">
+                            {currentUserData.name || "You"}
+                        </span>
+                        <span className="text-[10px] uppercase tracking-widest text-slate-500">
+                            You
+                        </span>
+                    </div>
+                ) : (
+                    <div className="text-slate-500 text-sm italic">Loading user...</div>
+                )}
+
+                {/* ⚔️ VS + TIMER */}
+                <div className="flex flex-col-reverse items-center gap-2">
+                    <span className="text-xl font-extrabold text-cyan-300 tracking-widest">VS</span>
+                    <div className="bg-[#0d2229]/60 backdrop-blur-sm rounded-xl px-6 py-2 flex items-center gap-3 shadow-lg">
+                        <span className="text-xs tracking-widest text-slate-400 uppercase">
+                            Timer
+                        </span>
+                        <span className="font-mono text-lg font-bold text-cyan-100">
+                            {formatTime(secondsElapsed)}
+                        </span>
+                    </div>
                 </div>
+                {/* 🧑‍💻 Opponent */}
+                                {opponentData ? (
+                    <div className="flex flex-col items-center text-center">
+                        <img
+                            src={opponentData.avatarUrl || "/default-avatar.png"}
+                            alt={opponentData.name || "Opponent"}
+                            className="w-8 h-8 rounded-full object-cover border-2 border-red-500 shadow-md"
+                        />
+                        <span className="text-sm font-semibold text-red-300 mt-2 tracking-wide">
+                            {opponentData.name || "Opponent"}
+                        </span>
+                        <span className="text-[10px] uppercase tracking-widest text-slate-500">
+                            Opponent
+                        </span>
+                    </div>
+                ) : (
+                    <div className="text-slate-500 text-sm italic">Waiting for opponent...</div>
+                )}
+
+
+
             </div>
+
 
             <div className="flex flex-col lg:flex-row gap-6 px-6 pb-24">
                 <div className="flex-1 bg-transparent rounded-2xl p-6">

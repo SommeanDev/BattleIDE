@@ -23,7 +23,7 @@ router.get("/by-auth/:authId", async (req, res) => {
   try {
     const user = await User.findOne({ authId: req.params.authId });
     if (!user) return res.status(404).json({ message: "User not found" });
-    res.json({ _id: user._id, name: user.username });
+    res.json({ _id: user._id, name: user.username ,avatarUrl:user.avatarUrl});
   } catch (error) {
     console.error("Error fetching user by authId:", error);
     res.status(500).json({ message: "Server error" });
@@ -49,5 +49,20 @@ router.get("/winner/:winnerId", async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
+
+router.get("/getuser/:userId",async(req,res)=>{
+  try {
+    const user = await User.findById(req.params.userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+    res.json({
+      _id: user._id,
+      name: user.username,
+      avatarUrl:user.avatarUrl
+    });
+  } catch (error) {
+    console.error("Error fetching/updating user by ID:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+})
 
 export default router;
