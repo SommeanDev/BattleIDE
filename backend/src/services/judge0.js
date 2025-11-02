@@ -3,27 +3,35 @@ import Room from "../db/models/Room.js";
 import Submission from "../db/models/Submission.js";
 import Problem from "../db/models/Problem.js";
 import { emitMatchEnd, emitSubmissionLate, getSocketFromUserId } from "../socket.js";
+import dotenv from "dotenv";
+dotenv.config();
 
-const JUDGE0_URL = process.env.JUDGE0_API_URL || "https://judge0-ce.p.rapidapi.com";
+const JUDGE0_URL = process.env.JUDGE0_URL || "https://judge0-ce.p.rapidapi.com";
 
 const JUDGE0_HEADERS = { "Content-Type": "application/json" };
 if (process.env.JUDGE0_KEY) JUDGE0_HEADERS["X-RapidAPI-Key"] = process.env.JUDGE0_KEY;
 if (process.env.JUDGE0_HOST) JUDGE0_HEADERS["X-RapidAPI-Host"] = process.env.JUDGE0_HOST;
 
 async function createJudge0Submission(submission) {
+  console.log("SUBMISSION",submission)
   const problem = await Problem.findById(submission.problemId);
   if (!problem) throw new Error("Problem not found");
 
-  const submissions = problem.testCases.map((testCase) => ({
+  
+  const submissions = problem.examples.map((testCase) => ({
     source_code: submission.code,
     language_id: getLanguageId(submission.language),
     stdin: testCase.input,
     expected_output: testCase.output,
   }));
 
+  console.log("sadasdasd",submissions);
+  
+  
   const url = `${JUDGE0_URL}/submissions/batch?base64_encoded=false&wait=false`;
   const res = await axios.post(url, { submissions }, { headers: JUDGE0_HEADERS });
-
+  console.log("responseeee",res);
+  
   return res.data;
 }
 
@@ -85,9 +93,11 @@ function getFinalStatus(results) {
   return finalStatus;
 }
 
-export async function processMatchSubmission(submissionId) {
+export async function processMatchSubmission(submissionId,userId) {
   try {
     const submission = await Submission.findById(submissionId);
+    console.log("SAHDASHIASHD",submission);
+    
     if (!submission) return;
 
     const tokens = await createJudge0Submission(submission);
@@ -99,6 +109,8 @@ export async function processMatchSubmission(submissionId) {
 
     const finalStatus = getFinalStatus(results);
     submission.status = finalStatus;
+    console.log("SUBMISSION BACKEED",submission);
+    
     await submission.save();
 
     if (finalStatus !== "Accepted") {

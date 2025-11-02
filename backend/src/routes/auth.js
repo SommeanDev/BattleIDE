@@ -1,5 +1,6 @@
 import express from "express";
 import jwt from "jsonwebtoken";
+import User from "../db/models/User.js";
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || "dev_secret";
@@ -17,4 +18,26 @@ router.post("/login", (req, res) => {
   res.json({ token, user: payload });
 });
 
+
+router.get("/by-auth/:authId", async (req, res) => {
+  try {
+    const user = await User.findOne({ authId: req.params.authId });
+    if (!user) return res.status(404).json({ message: "User not found" });
+    res.json({ _id: user._id,name: user.username});
+  } catch (error) {
+    console.error("Error fetching user by authId:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+router.get("/winner/:winnerId", async (req, res) => {
+  try {
+    const user = await User.findById(req.params.winnerId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+    res.json({ _id: user._id,name: user.username});
+  } catch (error) {
+    console.error("Error fetching user by authId:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
 export default router;

@@ -10,7 +10,7 @@ const router = express.Router();
 router.post("/", verifyAuth, async (req, res) => {
   const { code, language, problemId, roomId } = req.body;
   const userId = req.user.id; // Get user ID from verifyAuth middleware
-
+  console.log("USER ID ------",userId)
   if (!code || !language || !problemId || !roomId) {
     return res.status(400).json({ error: "Missing required fields" });
   }

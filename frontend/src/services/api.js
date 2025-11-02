@@ -39,6 +39,8 @@ export const joinRoomByCode = (shareCode, token) => {
 };
 
 export const submitFinalSolution = ({ code, language, problemId, roomId, token }) => {
+    console.log("Submission completed ");
+    
     return apiClient.post(
         "/submit",
         { code, language, problemId, roomId },
