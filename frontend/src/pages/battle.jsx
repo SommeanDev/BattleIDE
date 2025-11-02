@@ -46,40 +46,26 @@ export default function Battle() {
     const [currentUser, setCurrentUser] = useState("");
     const [winnerName, setWinnerName] = useState("User");
 
-    useEffect(()=>{
-    },[winnerName])
+    const [updateTrigger, setUpdateTrigger] = useState(0);
 
     useEffect(() => {
-        const fetchUserId = async () => {
-            if (!isLoaded || !myUserId) return;
-            console.log();
-            try {
-                const res = await axios.get(`http://localhost:4000/auth/by-auth/${myUserId}`);
-                console.log(res);
-                setCurrentUser(res.data._id);
-                console.log("Fetched MongoDB user ID:", res.data._id);
-            } catch (error) {
-                console.error("Failed to fetch user ID:", error.response?.data || error.message);
+        if (!socket || !roomId || !myUserId) return;
+
+        const handlePlayerJoined = ({ joinedBy }) => {
+            console.log("👥 Player joined:", joinedBy);
+            if (joinedBy !== myUserId) {
+                console.log("🔄 Another player joined — updating room data");
+                setUpdateTrigger(prev => prev + 1); // trigger fetchRoomData
             }
         };
-        fetchUserId();
-    }, [isLoaded, myUserId]);
 
+        socket.on("player_joined", handlePlayerJoined);
 
-    const fetchWinnerData = async (winner_id) => {
-        if (!isLoaded || !myUserId) return;
-        console.log();
-        try {
-            const res = await axios.get(`http://localhost:4000/auth/winner/${winner_id}`);
-            console.log(res);
-            setWinnerName(res.data.name)
+        // Only emit once
+        socket.emit("join_room", { roomId, userId: myUserId });
 
-            // console.log("Fetched MongoDB user ID:", res.data._id);
-        } catch (error) {
-            console.error("Failed to fetch user ID:", error.response?.data || error.message);
-        }
-    };
-
+        return () => socket.off("player_joined", handlePlayerJoined);
+    }, [socket, roomId, myUserId]);
     useEffect(() => {
         if (!socket || !roomId || !isLoaded) {
             setMatchStatus('Connecting...');
@@ -91,6 +77,7 @@ export default function Battle() {
                 const token = await getToken();
                 const res = await getRoom(roomId, token);
                 const roomData = res.data.room;
+
                 setRoom(roomData);
                 setMatchStatus(roomData.status);
 
@@ -113,46 +100,8 @@ export default function Battle() {
             }
         };
 
-        // ✅ Attach socket listeners BEFORE join_room emit
-        const handleMatchStart = ({ room: roomData }) => {
-            setRoom(roomData);
-            setMatchStatus('in_progress');
-            if (roomData.problemId) setProblem(roomData.problemId);
-            console.log('Match started!', roomData);
-            startTimer(0);
-        };
-
-        const handleMatchEnd = async({ winnerId, room: roomData }) => {
-            setRoom(roomData);
-            setWinner(winnerId);
-            await fetchWinnerData(winnerId);
-            setMatchStatus('finished');
-            clearInterval(timerRef.current);
-            console.log('Match finished!', roomData);
-        };
-
-        const handleLateSubmission = ({ message }) => {
-            alert(message);
-            setSubmittingMatch(false);
-        };
-
-        socket.on('match_start', handleMatchStart);
-        socket.on('match_end', handleMatchEnd);
-        socket.on('submission_accepted_late', handleLateSubmission);
-
-        // ✅ Now emit after listeners are ready
-        socket.emit('join_room', { roomId });
-
         fetchRoomData();
-
-        return () => {
-            socket.off('match_start', handleMatchStart);
-            socket.off('match_end', handleMatchEnd);
-            socket.off('submission_accepted_late', handleLateSubmission);
-            clearInterval(timerRef.current);
-        };
-    }, [socket, roomId, getToken, navigate, isLoaded]);
-
+    }, [socket, roomId, isLoaded, updateTrigger]);
 
     useEffect(() => {
         setCode(SAMPLE_CODE_MAP[language]);
