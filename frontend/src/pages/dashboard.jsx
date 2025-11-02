@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from "@clerk/clerk-react"; 
+import { useAuth } from "@clerk/clerk-react";
 import {
     Trophy,
     Swords,
@@ -8,6 +8,22 @@ import {
     XCircle,
     Target
 } from 'lucide-react';
+// Add Recharts imports
+import {
+    LineChart,
+    Line,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    Tooltip,
+    ResponsiveContainer,
+    Legend,
+    PieChart,
+    Pie,
+    Cell
+} from 'recharts';
+
+
 
 
 const GlassCard = ({ children, className = "" }) => (
@@ -20,8 +36,7 @@ const GlassCard = ({ children, className = "" }) => (
 
 // 1. User Profile Card
 const UserProfileCard = ({ user }) => {
-    // --- CALCULATE NEW STATS ---
-    // Ensure submissions and matches are arrays, even if null/undefined
+
     const submissions = Array.isArray(user.submissions) ? user.submissions : [];
     const matches = Array.isArray(user.matches) ? user.matches : [];
 
@@ -29,12 +44,11 @@ const UserProfileCard = ({ user }) => {
     const acceptedSubmissions = submissions.filter(s => s.status === 'Accepted').length;
 
     // Calculate accuracy
-    const accuracy = totalSubmissions > 0
-        ? ((acceptedSubmissions / totalSubmissions) * 100).toFixed(1)
-        : "0.0";
+    
 
     // Calculate matches won/lost
     const totalMatches = matches.length;
+    
 
     // Find unique room IDs from "Accepted" submissions
     const wonRoomIds = new Set(
@@ -45,6 +59,13 @@ const UserProfileCard = ({ user }) => {
 
     const matchesWon = wonRoomIds.size;
     const matchesLost = Math.max(0, totalMatches - matchesWon); // Ensure it's not negative
+    const battleAccuracy = totalMatches > 0
+        ? ((matchesWon / totalMatches) * 100).toFixed(1)
+        : "0.0";
+    
+    
+    
+
 
     return (
         <GlassCard className="p-6 flex flex-col items-center">
@@ -74,10 +95,10 @@ const UserProfileCard = ({ user }) => {
                 <div className="flex items-center justify-between text-lg">
                     <span className="flex items-center text-slate-300">
                         <Target className="w-5 h-5 mr-3 text-cyan-400" />
-                        Accuracy
+                         Win Rate
                     </span>
                     <span className="font-bold text-white">
-                        {accuracy}%
+                        {battleAccuracy}%
                     </span>
                 </div>
 
@@ -112,6 +133,91 @@ const UserProfileCard = ({ user }) => {
                     <span className="font-bold text-red-400">
                         {matchesLost}
                     </span>
+                </div>
+
+            </div>
+
+        </GlassCard>
+
+        
+    );
+};
+
+const SubmissionStatusChart = ({ submissions }) => {
+    if (!Array.isArray(submissions) || submissions.length === 0) {
+        return (
+            <GlassCard className="p-6">
+                <h3 className="text-2xl font-bold tracking-widest text-cyan-400 mb-4">
+                    Submission Overview
+                </h3>
+                <div className="h-64 flex items-center justify-center text-slate-400">
+                    No submissions yet. Try solving some problems!
+                </div>
+            </GlassCard>
+        );
+    }
+
+    // Count each status
+    const counts = submissions.reduce((acc, s) => {
+        acc[s.status] = (acc[s.status] || 0) + 1;
+        return acc;
+    }, {});
+
+    // Prepare chart data
+    const chartData = Object.keys(counts).map(status => ({
+        name: status,
+        value: counts[status],
+    }));
+
+    const COLORS = [
+        '#06b6d4', // Accepted - cyan
+        '#22c55e', // Runtime Error - green
+        '#ef4444', // Wrong Answer - red
+        '#eab308', // Time Limit Exceeded - yellow
+        '#a855f7', // Compilation Error - purple
+    ];
+
+    return (
+        <GlassCard className="p-6">
+            <h3 className="text-2xl font-bold tracking-widest text-cyan-400 mb-6">
+                Submission Overview
+            </h3>
+            <div className="flex flex-col lg:flex-row items-center justify-around gap-6">
+                {/* Pie Chart */}
+                <div style={{ width: 530, height: 280 }}>
+                    <ResponsiveContainer>
+                        <PieChart>
+                            <Pie
+                                data={chartData}
+                                dataKey="value"
+                                nameKey="name"
+                                innerRadius={70}
+                                outerRadius={110}
+                                paddingAngle={4}
+                                label={({ name, percent }) =>
+                                    `${name}: ${(percent * 100).toFixed(0)}%`
+                                }
+                            >
+                                {chartData.map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                ))}
+                            </Pie>
+                        </PieChart>
+                    </ResponsiveContainer>
+                </div>
+
+                {/* Legend */}
+                <div className="space-y-2">
+                    {chartData.map((entry, index) => (
+                        <div key={entry.name} className="flex items-center space-x-3 text-slate-300">
+                            <div
+                                className="w-4 h-4 rounded-full"
+                                style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                            ></div>
+                            <span className="text-sm font-medium">{entry.name}</span>
+                            <span className="font-bold text-white">{entry.value}</span>
+                        </div>
+                    ))}
                 </div>
             </div>
         </GlassCard>
@@ -156,7 +262,7 @@ const Leaderboard = ({ users, currentUser }) => (
                             <span className={`font-bold text-lg ${isCurrentUser ? 'text-white' : 'text-cyan-400'}`}>
                                 {user.rating}
                             </span>
-                        </li> // <!-- FIX: Added missing closing </li> tag -->
+                        </li>
                     );
                 })}
             </ul>
@@ -164,11 +270,122 @@ const Leaderboard = ({ users, currentUser }) => (
     </GlassCard>
 );
 
+// --- NEW COMPONENT: Rating History Chart ---
+const RatingHistoryChart = ({ submissions, userCreatedAt }) => {
+    // Process submissions to create rating history
+    const chartData = React.useMemo(() => {
+        if (!Array.isArray(submissions) || !userCreatedAt) {
+            return [];
+        }
+
+        // 1. Sort all submissions by date
+        const sortedSubmissions = [...submissions].sort((a, b) => new Date(a.updatedAt) - new Date(b.updatedAt));
+
+        let currentRating = 1200;
+        // 2. Add starting point
+        const history = [
+            {
+                time: new Date(userCreatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                rating: 1200
+            }
+        ];
+
+        // 3. Process each submission
+        sortedSubmissions.forEach(sub => {
+            if (sub.status === 'Accepted') {
+                currentRating += 100;
+            }
+            // Add a point for every submission to show progress over time
+            history.push({
+                time: new Date(sub.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                rating: currentRating
+            });
+        });
+
+        // De-duplicate dates if multiple submissions on the same day, keeping only the last one
+        const uniqueDayHistory = Object.values(
+            history.reduce((acc, entry) => {
+                acc[entry.time] = entry; // Keep overwriting, so only the last entry for that day is kept
+                return acc;
+            }, {})
+        );
+
+        return uniqueDayHistory;
+
+    }, [submissions, userCreatedAt]);
+
+    if (chartData.length <= 1) {
+        return (
+            <GlassCard className="p-6">
+                <h3 className="text-2xl font-bold tracking-widest text-cyan-400 mb-4">
+                    Rating History
+                </h3>
+                <div className="h-64 flex items-center justify-center text-slate-400">
+                    Not enough data for rating chart. Complete some matches!
+                </div>
+            </GlassCard>
+        )
+    }
+
+    return (
+        <GlassCard className="p-6">
+            <h3 className="text-2xl font-bold tracking-widest text-cyan-400 mb-6">
+                Rating History
+            </h3>
+            {/* Chart */}
+            <div style={{ width: '100%', height: 300 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                    <LineChart
+                        data={chartData}
+                        margin={{
+                            top: 5,
+                            right: 20,
+                            left: -20, // Adjust to show Y-axis labels
+                            bottom: 5,
+                        }}
+                    >
+                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                        <XAxis
+                            dataKey="time"
+                            stroke="#9ca3af"
+                            tick={{ fontSize: 12 }}
+                        />
+                        <YAxis
+                            stroke="#9ca3af"
+                            tick={{ fontSize: 12 }}
+                            domain={['dataMin - 100', 'dataMax + 100']} // Add padding
+                            allowDataOverflow={true}
+                        />
+                        <Tooltip
+                            contentStyle={{
+                                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                                borderColor: '#06b6d4',
+                                borderRadius: '10px'
+                            }}
+                            labelStyle={{ color: '#ffffff' }}
+                            itemStyle={{ color: '#06b6d4' }}
+                        />
+                        <Legend wrapperStyle={{ color: '#ffffff' }} />
+                        <Line
+                            type="monotone"
+                            dataKey="rating"
+                            stroke="#06b6d4" // Cyan color
+                            strokeWidth={3}
+                            activeDot={{ r: 8 }}
+                            dot={{ stroke: '#06b6d4', strokeWidth: 1, r: 4, fill: '#06b6d4' }}
+                        />
+                    </LineChart>
+                </ResponsiveContainer>
+            </div>
+        </GlassCard>
+    );
+};
+
 
 // --- MAIN APP COMPONENT ---
 
 export default function Dashboard() {
-    const { getToken, userId, isLoaded } = useAuth(); 
+    const { getToken, userId, isLoaded } = useAuth();
 
     // Set initial state to null or empty arrays
     const [currentUser, setCurrentUser] = useState(null);
@@ -188,10 +405,9 @@ export default function Dashboard() {
             setError(null);
 
             // --- FIX ---
-            // Add a base URL for your API. 
-            // You MUST change this to your actual backend server address.
-            // Example: 'http://localhost:8000' or 'https://api.yourdomain.com'
-            const BASE_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+            // Replaced `import.meta.env` which is not available in this environment
+            // You should change this to your actual backend URL or use process.env in your project
+            const BASE_API_URL = 'http://localhost:4000';
             // --- END FIX ---
 
             try {
@@ -214,12 +430,6 @@ export default function Dashboard() {
 
                 const meData = await meRes.json();
                 const leaderboardData = await leaderboardRes.json();
-
-                // Assuming your APIs return data in this structure:
-                // meData = { user: { ... } } (a single User object)
-                // leaderboardData = { leaderboard: [ ... ] } (an array of User objects)
-
-                // IMPORTANT: Assumes meData.user.submissions is an ARRAY OF OBJECTS
                 setCurrentUser(meData.user);
                 setLeaderboard(leaderboardData.leaderboard);
 
@@ -232,7 +442,8 @@ export default function Dashboard() {
                     rating: 0,
                     matches: [],
                     submissions: [], // Added
-                    avatarUrl: 'https://placehold.co/128x128/000000/e00?text=ERR'
+                    avatarUrl: 'https://placehold.co/128x128/000000/e00?text=ERR',
+                    createdAt: new Date().toISOString() // Added for chart
                 });
                 setLeaderboard([]);
             } finally {
@@ -259,7 +470,7 @@ export default function Dashboard() {
             {/* Background */}
             <div
                 className="absolute top-0 left-0 w-full h-full 
-                   bg-gradient-to-br from-gray-900 via-black to-gray-900 -z-10"
+                      bg-gradient-to-br from-gray-900 via-black to-gray-900 -z-10"
             >
             </div>
 
@@ -297,8 +508,18 @@ export default function Dashboard() {
                             <UserProfileCard user={currentUser} />
                         </div>
 
-                        {/* Column 2: Leaderboard (takes up remaining space) */}
-                        <div className="lg:col-span-2">
+                        {/* Column 2: Chart and Leaderboard */}
+                        <div className="lg:col-span-2 flex flex-col gap-6">
+
+                            {/* RATING CHART ADDED */}
+                            <RatingHistoryChart
+                                submissions={currentUser.submissions}
+                                userCreatedAt={currentUser.createdAt}
+                            />
+
+                            <SubmissionStatusChart submissions={currentUser.submissions} />
+
+                            {/* LEADERBOARD MOVED HERE */}
                             <Leaderboard users={leaderboard} currentUser={currentUser} />
                         </div>
 
@@ -316,9 +537,4 @@ export default function Dashboard() {
         </div>
     );
 }
-
-
-
-
-
 
