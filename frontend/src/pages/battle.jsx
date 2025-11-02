@@ -53,25 +53,60 @@ export default function Battle() {
     // State to trigger room updates
     const [updateTrigger, setUpdateTrigger] = useState(0);
 
-    useEffect(() => {
+    const refreshRoomData = async () => {
+    try {
+        const token = await getToken();
+        const res = await getRoom(roomId, token);
+        const roomData = res.data.room;
 
-        if (!socket || !roomId || !myUserId) return;
+        setRoom(roomData);
+        setMatchStatus(roomData.status);
 
-        const handlePlayerJoined = ({ joinedBy }) => {
-            console.log("👥 Player joined:", joinedBy);
-            if (joinedBy !== myUserId) {
-                console.log("🔄 Another player joined — updating room data");
-                setUpdateTrigger(prev => prev + 1); // trigger fetchRoomData
-            }
-        };
+        // ✅ FIND AND SET OPPONENT DATA
+        if (Array.isArray(roomData.players) && roomData.players.length > 1) {
+            const opponentId = roomData.players.find(id => id !== String(currentUser));
+            if (opponentId) await fetchOpponentData(opponentId);
+        }
 
-        socket.on("player_joined", handlePlayerJoined);
+        if (roomData.problemId) setProblem(roomData.problemId);
 
-        // Only emit once
-        socket.emit("join_room", { roomId, userId: myUserId });
+        if (roomData.status === "in_progress" && roomData.startedAt) {
+            const startTime = new Date(roomData.startedAt).getTime();
+            startTimer(Math.floor((Date.now() - startTime) / 1000));
+        } else if (roomData.status === "finished") {
+            setWinner(roomData.winnerId);
+            await fetchWinnerData(roomData.winnerId);
+            clearInterval(timerRef.current);
+        }
+    } catch (err) {
+        console.error("Error fetching room data", err);
+        setMatchStatus("Error");
+        if (err.response?.status === 404 || err.response?.status === 401) {
+            navigate("/");
+        }
+    }
+};
 
-        return () => socket.off("player_joined", handlePlayerJoined);
-    }, [socket, roomId, myUserId]);
+
+useEffect(() => {
+    if (!socket || !roomId || !myUserId) return;
+
+    const handlePlayerJoined = async ({ joinedBy }) => {
+        console.log("👥 Player joined:", joinedBy);
+        if (joinedBy !== myUserId) {
+            console.log("🔄 Another player joined — refreshing room data");
+            await refreshRoomData(); // ✅ directly fetch new data
+        }
+    };
+
+    socket.on("player_joined", handlePlayerJoined);
+
+    // Only emit once
+    socket.emit("join_room", { roomId, userId: myUserId });
+
+    return () => socket.off("player_joined", handlePlayerJoined);
+}, [socket, roomId, myUserId, currentUser]);
+
 
     // Fetch room data effect
     useEffect(() => {
