@@ -106,6 +106,59 @@ router.post("/join", verifyAuth, async (req, res) => {
   }
 });
 
+router.post("/random", verifyAuth, async (req, res) => {
+  const userId = req.user.id;
+  try {
+    const joinedRoom = await Room.findOneAndUpdate(
+      {
+        status: "waiting",
+        "players.0": { $exists: true },   // has at least one player
+        "players.1": { $exists: false },  // but not a second -> exactly 1
+        players: { $ne: userId },         // user is not already in the room
+      },
+      {
+        $push: { players: userId },
+        $set: { status: "in_progress", startedAt: new Date() },
+      },
+      { new: true }
+    );
+
+    if (joinedRoom) {
+      // add match reference for the joiner
+      await User.findByIdAndUpdate(userId, { $push: { matches: joinedRoom._id } });
+
+      // notify both players
+      const hostSocket = getSocketFromUserId(joinedRoom.players[0]);
+      if (hostSocket) emitMatchStart(hostSocket, joinedRoom);
+      emitMatchStart(userId, joinedRoom);
+
+      console.log("Room found: ", { roomId: joinedRoom._id, shareCode: joinedRoom.shareCode });
+
+      return res.json({ roomId: joinedRoom._id, shareCode: joinedRoom.shareCode });
+    }
+
+     // No suitable room found -> create a new waiting room for this user
+    const problem = await Problem.findOne();
+    if (!problem) {
+      return res.status(500).json({ error: "No problems available" });
+    }
+
+    const newRoom = await Room.create({
+      players: [userId],
+      problemId: problem._id,
+      status: "waiting",
+      shareCode: generateShareCode(),
+    });
+
+    await User.findByIdAndUpdate(userId, { $push: { matches: newRoom._id } });
+    return res.status(201).json({ roomId: newRoom._id, shareCode: newRoom.shareCode });
+  }
+  catch (err) {
+    console.error("Error finding/creating random room:", err.message);
+    res.status(500).json({ error: "Failed to find or create random room" });
+  }
+});
+
 function generateShareCode() {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
