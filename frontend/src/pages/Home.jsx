@@ -8,6 +8,7 @@ const Home = () => {
   const [joinCode, setJoinCode] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
+  const [isFinding, setIsFinding] = useState(false);
 
   const navigate = useNavigate();
   const { getToken } = useAuth();
@@ -41,6 +42,44 @@ const Home = () => {
       console.error("Failed to join room", err);
       alert("Failed to join room. Please check the code and try again.");
       setIsJoining(false);
+    }
+  };
+
+  const handleFindRandomMatch = async () => {
+    setIsFinding(true);
+    try {
+      const token = await getToken();
+      const res = await findRandomMatch(token);
+      const roomId = res.data.roomId;
+      navigate(`/battle/${roomId}`);
+    } catch (err) {
+      console.error("Failed to find random match", err);
+      alert("Failed to find random match. Please try again.");
+      setIsFinding(false);
+    }
+  };
+
+  const findRandomMatch = async (token) => {
+    try {
+      const API = import.meta.env.VITE_API_URL
+      const res = await fetch(`${API}/match/random`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!res.ok) {
+        const txt = await res.text();
+        throw new Error(txt || "Failed to find/create random match");
+      }
+
+      const data = await res.json();
+      return {data};
+    }
+    catch (err) {
+      throw err;
     }
   };
 
@@ -91,6 +130,14 @@ const Home = () => {
               {isJoining ? "Joining..." : "Join"}
             </button>
           </form>
+
+          <button
+            onClick={handleFindRandomMatch}
+            disabled={isFinding}
+            className="text-3xl bg-gradient-to-r from-black/60 to-white/5 backdrop-blur-lg text-white p-2 px-8 cursor-pointer hover:bg-white/10 rounded-full border-2 border-l-0 border-b-1 border-white/30 filter disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isFinding ? "Finding..." : "Find a Random Match"}
+          </button>
         </div>
       </div>
     </div>
