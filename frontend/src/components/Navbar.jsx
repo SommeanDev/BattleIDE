@@ -1,5 +1,7 @@
 import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/clerk-react";
 import logo from "../assets/BattleIDE.png"
+import { LayoutDashboard } from "lucide-react"; 
+const Link = ({ to, children, className }) => <a href={to} className={className}>{children}</a>;
 
 const Navbar = () => {
 
@@ -16,6 +18,7 @@ const Navbar = () => {
             </SignInButton >
             <span className="select-none">|</span>
             <SignInButton >
+
               <button className="hover:text-cyan-500 cursor-pointer">
                 Login
               </button>
@@ -25,6 +28,13 @@ const Navbar = () => {
       </SignedOut>
       <SignedIn>
         <div className="flex gap-2">
+          <Link
+            to="/dashboard"
+            className="bg-gradient-to-r select-none from-black/60 to-white/5 text-white font-semibold backdrop-blur-lg flex justify-center items-center px-4 rounded-full border-2 border-l-0 border-b-1 border-white/30 filter hover:bg-white/10 transition-colors"
+          >
+            <LayoutDashboard className="w-5 h-5 mr-2" />
+            Dashboard
+          </Link>
           <div className="bg-gradient-to-r select-none from-black/60 to-white/5 text-white font-semibold backdrop-blur-lg flex justify-center items-center px-4 rounded-4xl border-2 border-l-0 border-b-1 border-white/30 filter">
             ACE I
           </div>

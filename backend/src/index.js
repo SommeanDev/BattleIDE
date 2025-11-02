@@ -7,6 +7,7 @@ import matchRoutes from "./routes/match.js";
 import submitRoutes from "./routes/submit.js";
 import { initSocket } from "./socket.js";
 import connectDB from "./db/connectDB.js";
+import apiRoutes from "./routes/api.js";
 
 dotenv.config();
 
@@ -20,6 +21,7 @@ await connectDB();
 app.use("/auth", authRoutes);
 app.use("/match", matchRoutes);
 app.use("/submit", submitRoutes);
+app.use("/api", apiRoutes);
 
 const PORT = process.env.PORT || 4000;
 const server = http.createServer(app);
