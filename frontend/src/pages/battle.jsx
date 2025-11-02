@@ -46,7 +46,7 @@ export default function Battle() {
     const [currentUser, setCurrentUser] = useState("");
     const [winnerName, setWinnerName] = useState("User");
 
-    const [updateTrigger, setUpdateTrigger] = useState(0);
+
 
     useEffect(() => {
         if (!socket || !roomId || !myUserId) return;
