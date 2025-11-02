@@ -8,6 +8,7 @@ import axios from "axios"
 import { getRoom, submitFinalSolution } from "../services/api";
 import { runCodeOnJudge0 } from "../services/judge0";
 import SAMPLE_CODE_MAP from "../constants/sampleCodeMap";
+import { toast } from "sonner";
 
 const LANGUAGE_OPTIONS = [
     { value: "java", label: "Java" },
@@ -48,64 +49,65 @@ export default function Battle() {
 
 
     // State to trigger room updates
-const [updateTrigger, setUpdateTrigger] = useState(0);
+    const [updateTrigger, setUpdateTrigger] = useState(0);
 
-useEffect(() => {
-    if (!socket || !roomId || !myUserId) return;
+    useEffect(() => {
 
-    const handlePlayerJoined = ({ joinedBy }) => {
-        console.log("👥 Player joined:", joinedBy);
-        if (joinedBy !== myUserId) {
-            console.log("🔄 Another player joined — updating room data");
-            setUpdateTrigger(prev => prev + 1); // trigger fetchRoomData
-        }
-    };
+        if (!socket || !roomId || !myUserId) return;
 
-    socket.on("player_joined", handlePlayerJoined);
-
-    // Only emit once
-    socket.emit("join_room", { roomId, userId: myUserId });
-
-    return () => socket.off("player_joined", handlePlayerJoined);
-}, [socket, roomId, myUserId]);
-
-// Fetch room data effect
-useEffect(() => {
-    if (!socket || !roomId || !isLoaded) {
-        setMatchStatus('Connecting...');
-        return;
-    }
-
-    const fetchRoomData = async () => {
-        try {
-            const token = await getToken();
-            const res = await getRoom(roomId, token);
-            const roomData = res.data.room;
-
-            setRoom(roomData);
-            setMatchStatus(roomData.status);
-
-            if (roomData.problemId) setProblem(roomData.problemId);
-
-            if (roomData.status === 'in_progress') {
-                const startTime = new Date(roomData.startedAt).getTime();
-                startTimer(Math.floor((Date.now() - startTime) / 1000));
-            } else if (roomData.status === 'finished') {
-                setWinner(roomData.winnerId);
-                await fetchWinnerData(roomData.winnerId);
-                clearInterval(timerRef.current);
+        const handlePlayerJoined = ({ joinedBy }) => {
+            console.log("👥 Player joined:", joinedBy);
+            if (joinedBy !== myUserId) {
+                console.log("🔄 Another player joined — updating room data");
+                setUpdateTrigger(prev => prev + 1); // trigger fetchRoomData
             }
-        } catch (err) {
-            console.error("Error fetching room data", err);
-            setMatchStatus('Error');
-            if (err.response?.status === 404 || err.response?.status === 401) {
-                navigate('/');
-            }
-        }
-    };
+        };
 
-    fetchRoomData();
-}, [socket, roomId, isLoaded, updateTrigger]); // <- added updateTrigger
+        socket.on("player_joined", handlePlayerJoined);
+
+        // Only emit once
+        socket.emit("join_room", { roomId, userId: myUserId });
+
+        return () => socket.off("player_joined", handlePlayerJoined);
+    }, [socket, roomId, myUserId]);
+
+    // Fetch room data effect
+    useEffect(() => {
+        if (!socket || !roomId || !isLoaded) {
+            setMatchStatus('Connecting...');
+            return;
+        }
+
+        const fetchRoomData = async () => {
+            try {
+                const token = await getToken();
+                const res = await getRoom(roomId, token);
+                const roomData = res.data.room;
+
+                setRoom(roomData);
+                setMatchStatus(roomData.status);
+
+                if (roomData.problemId) setProblem(roomData.problemId);
+
+                if (roomData.status === 'in_progress') {
+                    const startTime = new Date(roomData.startedAt).getTime();
+                    startTimer(Math.floor((Date.now() - startTime) / 1000));
+                } else if (roomData.status === 'finished') {
+                    setWinner(roomData.winnerId);
+                    await fetchWinnerData(roomData.winnerId);
+                    clearInterval(timerRef.current);
+                }
+            } catch (err) {
+                console.error("Error fetching room data", err);
+                setMatchStatus('Error');
+                if (err.response?.status === 404 || err.response?.status === 401) {
+                    navigate('/');
+                }
+            }
+        };
+
+        fetchRoomData();
+    }, [socket, roomId, isLoaded, updateTrigger]); // <- added updateTrigger
 
 
 
@@ -148,6 +150,7 @@ useEffect(() => {
         }
 
         const fetchRoomData = async () => {
+
             try {
                 const token = await getToken();
                 const res = await getRoom(roomId, token);
@@ -183,7 +186,7 @@ useEffect(() => {
             startTimer(0);
         };
 
-        const handleMatchEnd = async({ winnerId, room: roomData }) => {
+        const handleMatchEnd = async ({ winnerId, room: roomData }) => {
             setRoom(roomData);
             setWinner(winnerId);
             await fetchWinnerData(winnerId);
@@ -293,7 +296,22 @@ useEffect(() => {
                 token,
             });
             console.log('Submission received by server:', res.data);
+            if (res.data.status != "Accepted") {
+                setSubmittingMatch(false)
+                toast('Wrong Answer  ❌', {
+                    style: {
+                        background: 'red',
+                        color: '#fff',
+                        fontSize: '16px',
+                        padding: '16px',
+                        textAlign: 'center',
+                        borderRadius: '8px',
+                        boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                    },
 
+                    duration: 2000,
+                });
+            }
 
         } catch (err) {
             console.error("Submission failed", err);

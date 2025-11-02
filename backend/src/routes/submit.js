@@ -23,17 +23,21 @@ router.post("/", verifyAuth, async (req, res) => {
       roomId,
       code,
       language,
-      status: "Pending", // Initial status
+      status: "Pending",
     });
 
     // 2. Start the judging process (asynchronously)
     // We don't 'await' this, so we can respond to the user immediately.
-    processMatchSubmission(submission, userId);
-
+    const sub = await  processMatchSubmission(submission, userId);
+    if(sub){
+      console.log("WRONG ANSSSSS");
+      console.log(sub)
+    }
     // 3. Respond to user immediately
     res.status(202).json({
       message: "Submission received. Running tests...",
       submissionId: submission._id,
+      status:sub.status
     });
   } catch (err) {
     console.error("Error creating submission:", err.message);
