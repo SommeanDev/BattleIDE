@@ -25,12 +25,12 @@ async function createJudge0Submission(submission) {
     expected_output: testCase.output,
   }));
 
-  console.log("sadasdasd",submissions);
+  // console.log("sadasdasd",submissions);
   
   
   const url = `${JUDGE0_URL}/submissions/batch?base64_encoded=false&wait=false`;
   const res = await axios.post(url, { submissions }, { headers: JUDGE0_HEADERS });
-  console.log("responseeee",res);
+  // console.log("responseeee",res);
   
   return res.data;
 }
@@ -114,7 +114,7 @@ export async function processMatchSubmission(submissionId,userId) {
     await submission.save();
 
     if (finalStatus !== "Accepted") {
-      return;
+      return submission;
     }
 
     const room = await Room.findById(submission.roomId);
@@ -146,6 +146,8 @@ export async function processMatchSubmission(submissionId,userId) {
         { status: "Wrong Answer" }
       );
     }
+
+    return submission;
   } catch (err) {
     console.error("Error processing submission:", err.message);
     try {
