@@ -46,6 +46,70 @@ export default function Battle() {
     const [currentUser, setCurrentUser] = useState("");
     const [winnerName, setWinnerName] = useState("User");
 
+
+    // State to trigger room updates
+const [updateTrigger, setUpdateTrigger] = useState(0);
+
+useEffect(() => {
+    if (!socket || !roomId || !myUserId) return;
+
+    const handlePlayerJoined = ({ joinedBy }) => {
+        console.log("👥 Player joined:", joinedBy);
+        if (joinedBy !== myUserId) {
+            console.log("🔄 Another player joined — updating room data");
+            setUpdateTrigger(prev => prev + 1); // trigger fetchRoomData
+        }
+    };
+
+    socket.on("player_joined", handlePlayerJoined);
+
+    // Only emit once
+    socket.emit("join_room", { roomId, userId: myUserId });
+
+    return () => socket.off("player_joined", handlePlayerJoined);
+}, [socket, roomId, myUserId]);
+
+// Fetch room data effect
+useEffect(() => {
+    if (!socket || !roomId || !isLoaded) {
+        setMatchStatus('Connecting...');
+        return;
+    }
+
+    const fetchRoomData = async () => {
+        try {
+            const token = await getToken();
+            const res = await getRoom(roomId, token);
+            const roomData = res.data.room;
+
+            setRoom(roomData);
+            setMatchStatus(roomData.status);
+
+            if (roomData.problemId) setProblem(roomData.problemId);
+
+            if (roomData.status === 'in_progress') {
+                const startTime = new Date(roomData.startedAt).getTime();
+                startTimer(Math.floor((Date.now() - startTime) / 1000));
+            } else if (roomData.status === 'finished') {
+                setWinner(roomData.winnerId);
+                await fetchWinnerData(roomData.winnerId);
+                clearInterval(timerRef.current);
+            }
+        } catch (err) {
+            console.error("Error fetching room data", err);
+            setMatchStatus('Error');
+            if (err.response?.status === 404 || err.response?.status === 401) {
+                navigate('/');
+            }
+        }
+    };
+
+    fetchRoomData();
+}, [socket, roomId, isLoaded, updateTrigger]); // <- added updateTrigger
+
+
+
+
     useEffect(() => {
         const fetchUserId = async () => {
             if (!isLoaded || !myUserId) return;

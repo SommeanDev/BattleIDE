@@ -18,13 +18,16 @@ export function initSocket(httpServer) {
     }
 
     // 🧩 When a user joins a room
-socket.on("join_room", async ({ roomId, userId }) => {
-  console.log(`📥 Socket ${socket.id} (User ${userId}) joining room ${roomId}`);
-  socket.join(roomId);
+    socket.on("join_room", ({ roomId, userId }) => {
+      socket.join(roomId);
+      console.log(`📥 User ${userId} joined room ${roomId}`);
 
-  // Notify everyone else (except the joining socket)
-  socket.to(roomId).emit("player_joined", { roomId, joinedBy: userId });
-});
+      // Notify others
+      socket.to(roomId).emit("player_joined", { roomId, joinedBy: userId });
+
+      // Confirm to joining client
+      socket.emit("joined_room", { roomId });
+    });
 
 
 
