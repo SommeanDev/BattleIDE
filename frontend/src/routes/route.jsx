@@ -3,6 +3,7 @@ import Home from "../pages/Home"
 import Battle from "../pages/battle"
 import App from "../App"
 import Hello from "../pages/Hello";
+import Dashboard from "../pages/dashboard";
 
 const router = createBrowserRouter([
     {
@@ -20,7 +21,11 @@ const router = createBrowserRouter([
             {
                 path: "/hello",
                 element: <Hello />
-            }
+            },
+            {
+                path: "/dashboard",
+                element :<Dashboard />
+            },
         ]
     }
 ]);
