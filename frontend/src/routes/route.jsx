@@ -4,6 +4,7 @@ import Battle from "../pages/battle"
 import App from "../App"
 import Hello from "../pages/Hello";
 import Dashboard from "../pages/dashboard";
+import Leaderboard from "../pages/Leaderboard";
 
 const router = createBrowserRouter([
     {
@@ -25,6 +26,10 @@ const router = createBrowserRouter([
             {
                 path: "/dashboard",
                 element :<Dashboard />
+            },
+            {
+                path: "/leaderboard",
+                element :<Leaderboard />
             },
         ]
     }
