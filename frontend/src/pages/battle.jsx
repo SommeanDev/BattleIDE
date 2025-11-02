@@ -116,7 +116,7 @@ export default function Battle() {
         if (!userId) return;
         console.log();
         try {
-            const res = await axios.get(`http://localhost:4000/auth/getuser/${userId}`);
+            const res = await axios.get(`${import.meta.env.VITE_API_URL}/auth/getuser/${userId}`);
             console.log(res);
             setOpponentData(res.data);
             console.log("Fetched opponent:", res.data);
@@ -131,7 +131,7 @@ export default function Battle() {
         const fetchUserId = async () => {
             if (!isLoaded || !myUserId) return;
             try {
-                const res = await axios.get(`http://localhost:4000/auth/by-auth/${myUserId}`);
+                const res = await axios.get(`${import.meta.env.VITE_API_URL}/auth/by-auth/${myUserId}`);
                 const mongoUser = res.data;
                 setCurrentUser(mongoUser._id);
                 setCurrentUserData(mongoUser); // ✅ store user info like name, avatar, etc.
@@ -148,7 +148,7 @@ export default function Battle() {
         if (!isLoaded || !myUserId) return;
         console.log();
         try {
-            const res = await axios.get(`http://localhost:4000/auth/winner/${winner_id}`);
+            const res = await axios.get(`${import.meta.env.VITE_API_URL}/auth/winner/${winner_id}`);
             console.log(res);
             setWinnerName(res.data.name)
 
