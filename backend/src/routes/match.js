@@ -3,6 +3,7 @@ import Room from "../db/models/Room.js";
 import Problem from "../db/models/Problem.js";
 import { verifyAuth } from "../middleware/verifyAuth.js"; // You need this
 import { getSocketFromUserId, emitMatchStart } from "../socket.js";
+import User from "../db/models/User.js";
 
 const router = express.Router();
 
@@ -26,8 +27,8 @@ router.get("/:roomId", verifyAuth, async (req, res) => {
 // Creates a new room for a match
 router.post("/create", verifyAuth, async (req, res) => {
   const userId = req.user.id;
-  console.log("here is ",userId);
-  
+  console.log("here is ", userId);
+
   try {
     // 1. Get a random problem (e.g., "Easy" one)
     // In a real app, you'd filter by difficulty
@@ -38,8 +39,8 @@ router.post("/create", verifyAuth, async (req, res) => {
     }
 
     // 2. Create the room
-    console.log("asdasdasd",userId);
-    
+    console.log("asdasdasd", userId);
+
     const newRoom = await Room.create({
       players: [userId],
       problemId: problem._id,
@@ -47,8 +48,11 @@ router.post("/create", verifyAuth, async (req, res) => {
       shareCode: generateShareCode(),
       // 'startedAt' and 'winnerId' are left empty
     });
+    await User.findByIdAndUpdate(userId, {
+      $push: { matches: newRoom._id },
+    });
     console.log("Room created:", newRoom);
-    
+
     res.status(201).json({ roomId: newRoom._id, shareCode: newRoom.shareCode });
   } catch (err) {
     console.error("Error creating room:", err.message);

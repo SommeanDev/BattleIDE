@@ -370,6 +370,9 @@ export default function Battle() {
                     ) : (
                         <AiOutlineCloseCircle className="text-red-500 text-7xl mx-auto mb-4" />
                     )}
+                    <div>
+                        <p className={`${isWinner?"text-green-300":"text-red-600"} text-2xl`}>{isWinner?"+ 100":"+ 0 "}</p>
+                    </div>
                     <p className="text-lg text-slate-200 mb-2">
                         {isWinner ? "You won the match!" : "Your opponent finished first."}
                     </p>
