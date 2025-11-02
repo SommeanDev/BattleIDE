@@ -2,6 +2,7 @@ import express from "express";
 import Submission from "../db/models/Submission.js";
 import { processMatchSubmission } from "../services/judge0.js";
 import { verifyAuth } from "../middleware/verifyAuth.js"; // You need to create this auth middleware
+import User from "../db/models/User.js";
 
 const router = express.Router();
 
@@ -10,7 +11,7 @@ const router = express.Router();
 router.post("/", verifyAuth, async (req, res) => {
   const { code, language, problemId, roomId } = req.body;
   const userId = req.user.id; // Get user ID from verifyAuth middleware
-  console.log("USER ID ------",userId)
+  console.log("USER ID ------", userId)
   if (!code || !language || !problemId || !roomId) {
     return res.status(400).json({ error: "Missing required fields" });
   }
@@ -28,16 +29,20 @@ router.post("/", verifyAuth, async (req, res) => {
 
     // 2. Start the judging process (asynchronously)
     // We don't 'await' this, so we can respond to the user immediately.
-    const sub = await  processMatchSubmission(submission, userId);
-    if(sub){
+    const sub = await processMatchSubmission(submission, userId);
+    if (sub) {
       console.log("WRONG ANSSSSS");
       console.log(sub)
     }
+
+    await User.findByIdAndUpdate(userId, {
+      $push: { submissions: submission._id },
+    });
     // 3. Respond to user immediately
     res.status(202).json({
       message: "Submission received. Running tests...",
       submissionId: submission._id,
-      status:sub.status
+      status: sub.status
     });
   } catch (err) {
     console.error("Error creating submission:", err.message);
