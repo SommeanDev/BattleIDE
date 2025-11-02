@@ -28,7 +28,7 @@ export default function Leaderboard() {
             setError(null);
 
 
-            const BASE_API_URL = 'http://localhost:4000';
+            const BASE_API_URL = import.meta.env.VITE_API_URL;
 
 
             try {
@@ -85,22 +85,13 @@ export default function Leaderboard() {
     }
 
     return (
-        <div className="relative flex flex-col items-center min-h-screen w-full overflow-hidden font-sans">
+        <div className="relative flex flex-col items-center min-h-screen w-full font-sans">
             {/* Background */}
             <div
-                className="absolute top-0 left-0 w-full h-full 
-                      bg-gradient-to-br from-gray-900 via-black to-gray-900 -z-10"
+                className="absolute top-0 left-0 w-full h-full bg-cover bg-center -z-10"
+                style={{ backgroundImage: "url('/15.jpg')" }}
             >
             </div>
-
-            {/* Page Header */}
-            <header className="w-full p-6 mt-16 text-center">
-                <h1 className="text-5xl font-bold tracking-widest text-white text-shadow-lg"
-                    style={{ textShadow: '0 0 15px rgba(6, 182, 212, 0.7)' }}>    
-                    GLOBAL LEADERBOARD
-                </h1>
-            </header>
-
             <LeaderboardC users={leaderboard} currentUser={currentUser} />
 
         </div>
