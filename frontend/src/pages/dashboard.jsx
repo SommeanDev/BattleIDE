@@ -78,7 +78,7 @@ export default function Dashboard() {
 
     if (!isLoaded) {
         return (
-            <div className="relative flex justify-center items-center min-h-screen w-full overflow-hidden font-sans bg-gradient-to-br from-gray-900 via-black to-gray-900">
+            <div className="relative flex justify-center items-center min-h-screen w-full overflow-hidden bg-gradient-to-br from-gray-900 via-black to-gray-900">
                 <div className="text-cyan-400 text-2xl tracking-widest animate-pulse">
                     Loading User...
                 </div>
@@ -87,18 +87,17 @@ export default function Dashboard() {
     }
 
     return (
-        <div className="relative flex flex-col min-h-screen w-full overflow-hidden font-sans">
+        <div className="relative flex flex-col min-h-screen w-full text-slate-200 overflow-hidden">
             {/* Background */}
             <div
-                className="absolute top-0 left-0 w-full h-full 
-                      bg-gradient-to-br from-gray-900 via-black to-gray-900 -z-10"
-            >
-            </div>
+                className="absolute top-0 left-0 w-full h-full bg-cover bg-center -z-10"
+                style={{ backgroundImage: "url('/15.jpg')" }}
+            ></div>
+
 
             {/* Page Header */}
-            <header className="w-full p-6 mt-16 text-center">
-                <h1 className="text-5xl font-bold tracking-widest text-white text-shadow-lg"
-                    style={{ textShadow: '0 0 15px rgba(6, 182, 212, 0.7)' }}>
+            <header className="w-full p-6 mt-16 text-center ">
+                <h1 className="text-5xl font-bold tracking-widest text-white text-shadow-lg">
                     USER DASHBOARD
                 </h1>
             </header>
@@ -113,7 +112,6 @@ export default function Dashboard() {
                         </div>
                     </div>
                 ) : error ? (
-                    // Error State
                     <div className="flex justify-center items-center h-96">
                         <GlassCard className="p-8 text-center">
                             <h2 className="text-2xl text-red-500 mb-4 font-bold">Failed to Load Data</h2>
