@@ -46,8 +46,7 @@ export default function Battle() {
     const [currentUser, setCurrentUser] = useState("");
     const [winnerName, setWinnerName] = useState("User");
 
-    useEffect(()=>{
-    },[winnerName])
+
 
     useEffect(() => {
         const fetchUserId = async () => {
