@@ -1,10 +1,10 @@
-name: Node.js CI
+name: Frontend CI
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 
 jobs:
   build:
@@ -15,13 +15,22 @@ jobs:
         node-version: [18.x, 20.x, 22.x]
 
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
     - name: Use Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v4
       with:
-        node-version: ${{ matrix.node-version }}   # cache removed
+        node-version: ${{ matrix.node-version }}
 
-    - run: npm install
-    - run: npm run build --if-present
-    - run: npm test || echo "No tests yet"
+    - name: Install dependencies
+      run: npm install
+      working-directory: frontend
+
+    - name: Build app
+      run: npm run build --if-present
+      working-directory: frontend
+
+    - name: Run tests
+      run: npm test || echo "No tests yet"
+      working-directory: frontend
